@@ -13,7 +13,7 @@ use warp_prometheus::Metrics;
 use warp::Filter;
 
 let registry: Registry = Registry::new();
-let path_includes: Vec<String> = vec![String::from("users"), String::from("registration")];
+let path_includes: Vec<String> = vec![String::from("hello")];
 
 let route_one = warp::path("hello")
     .and(warp::path::param())
