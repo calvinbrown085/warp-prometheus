@@ -3,6 +3,7 @@ name = "warp-prometheus"
 version = "0.2.0"
 authors = ["Calvin Brown <cab025@protonmail.com>"]
 description = "An afterthought of prometheus metrics for Warp"
+repository = "https://github.com/calvinbrown085/warp-prometheus"
 license = "Apache-2.0"
 edition = "2018"
 readme = "README.md"
