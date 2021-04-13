@@ -1,12 +1,10 @@
 use log::trace;
 use prometheus::HistogramOpts;
-use prometheus::Opts;
-use prometheus::{CounterVec, HistogramVec, Registry};
+use prometheus::{HistogramVec, Registry};
 
 #[derive(Debug, Clone)]
 pub struct Metrics {
     http_timer: HistogramVec,
-    http_counter: CounterVec,
     include_path_labels: Vec<String>,
 }
 
@@ -20,13 +18,8 @@ impl Metrics {
             HistogramVec::new(internal_http_timer_opts, &["classifier"]).unwrap();
         cr.register(Box::new(internal_http_timer.clone())).unwrap();
 
-        let http_counter_opts = Opts::new("server_request_count", "Internal Server Request Count.");
-        let http_counter = CounterVec::new(http_counter_opts, &["classifier", "status"]).unwrap();
-        cr.register(Box::new(http_counter.clone())).unwrap();
-
         Self {
             http_timer: internal_http_timer,
-            http_counter,
             include_path_labels: include_path_labels.clone(),
         }
     }
@@ -46,14 +39,13 @@ impl Metrics {
 
     /// Get prometheus metrics per-route and how long each route takes.
     /// ```
-    ///
     /// use prometheus::Registry;
     /// use warp::Filter;
     /// use warp_prometheus::Metrics;
     ///
     ///
-    /// let registry: Registry = Registry::new();
-    /// let path_includes: Vec<String> = vec![String::from("users"), String::from("registration")];
+    /// let registry: &Registry = prometheus::default_registry();
+    /// let path_includes: Vec<String> = vec![String::from("hello")];
     ///
     /// let route_one = warp::path("hello")
     ///    .and(warp::path::param())
@@ -75,17 +67,15 @@ impl Metrics {
             &info.method(),
             &info.path()
         );
-        self.http_timer
-            .with_label_values(&[info.path()])
-            .observe(info.elapsed().as_secs_f64());
         let sanitized_classifier = format!(
             "{} - {}",
             info.method(),
             self.sanitize_path_segments(info.path())
         );
-        self.http_counter
-            .with_label_values(&[&sanitized_classifier, &info.status().as_u16().to_string()])
-            .inc();
+        self.http_timer
+            .with_label_values(&[&sanitized_classifier])
+            .observe(info.elapsed().as_secs_f64());
+
     }
 }
 

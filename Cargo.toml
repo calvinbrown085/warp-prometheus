@@ -1,11 +1,12 @@
 [package]
 name = "warp-prometheus"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Calvin Brown <cab025@protonmail.com>"]
 description = "An afterthought of prometheus metrics for Warp"
 license = "Apache-2.0"
 edition = "2018"
 readme = "README.md"
+repository = "https://github.com/calvinbrown085/warp-prometheus"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
