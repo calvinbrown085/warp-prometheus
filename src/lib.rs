@@ -15,7 +15,7 @@ impl Metrics {
             "Route response time in seconds.",
         );
         let internal_http_timer =
-            HistogramVec::new(internal_http_timer_opts, &["classifier"]).unwrap();
+            HistogramVec::new(internal_http_timer_opts, &["classifier", "status"]).unwrap();
         cr.register(Box::new(internal_http_timer.clone())).unwrap();
 
         Self {
@@ -73,7 +73,7 @@ impl Metrics {
             self.sanitize_path_segments(info.path())
         );
         self.http_timer
-            .with_label_values(&[&sanitized_classifier])
+            .with_label_values(&[&sanitized_classifier, info.status().as_str()])
             .observe(info.elapsed().as_secs_f64());
 
     }
