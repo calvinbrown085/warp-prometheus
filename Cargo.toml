@@ -1,6 +1,6 @@
 [package]
 name = "warp-prometheus"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Calvin Brown <cab025@protonmail.com>"]
 description = "An afterthought of prometheus metrics for Warp"
 repository = "https://github.com/calvinbrown085/warp-prometheus"
@@ -13,5 +13,5 @@ readme = "README.md"
 [dependencies]
 lazy_static = "1.4.0"
 log = "0.4.0"
-prometheus =  "0.11.0"
+prometheus =  "0.12.0"
 warp = "0.3.0"
