@@ -1,62 +1,65 @@
 # BYTECHEF.md
 
-## Project Description
+## What this project does
 
-`warp-prometheus` is a Rust library designed to provide "afterthought" Prometheus metrics for applications built with the Warp web framework. It simplifies the collection of HTTP request duration and status code metrics, allowing developers to instrument their Warp services with Observability features easily. The library includes functionality to sanitize URL paths, preventing high-cardinality issues with Prometheus labels.
+`warp-prometheus` is a Rust library designed to seamlessly integrate Prometheus metrics into applications built using the `warp` web framework. It provides a `Metrics` struct that, when used with `warp::log::custom`, automatically collects HTTP request duration and status, and intelligently sanitizes request paths to generate consistent and aggregated Prometheus labels.
 
 ## Architecture
 
-The core of `warp-prometheus` is the `Metrics` struct. Upon instantiation with a Prometheus `Registry` and a vector of path segments to include, it registers a `server_response_duration_seconds` `HistogramVec`. This histogram tracks HTTP request durations, categorized by `classifier` (HTTP method combined with a sanitized path) and `status` (HTTP status code). The `Metrics` struct offers an `http_metrics` method, intended to be integrated into Warp route chains via `warp::log::custom`. This method processes `warp::log::Info` to extract relevant request details and records them to the registered histogram. A crucial `sanitize_path_segments` helper method automatically replaces dynamic path parts with wildcards (`*`) unless explicitly whitelisted, ensuring metric labels remain manageable.
+The library's core is the `Metrics` struct, which encapsulates a Prometheus `HistogramVec` for tracking `server_response_duration_seconds`. It integrates with `warp` applications by providing the `http_metrics` method, designed to be used with the `warp::log::custom` filter. This method records request duration, HTTP method, and status code. A key architectural feature is the `sanitize_path_segments` method, which transforms dynamic path segments (e.g., IDs) into wildcards (`*`) to ensure consistent and manageable Prometheus labels for route classification, based on a configurable list of included path segments.
 
-## Key Files
+## Key files
 
-*   `Cargo.toml`: Defines the project as a Rust library, specifies its `warp-prometheus` name, version, author, description, and declares essential dependencies including `log`, `prometheus`, and `warp`.
-*   `README.md`: Serves as the primary introduction to the library, providing a high-level overview, links to documentation and CI status, and a practical code example demonstrating basic usage with a Warp filter.
-*   `src/lib.rs`: Contains the full implementation of the `Metrics` struct. This file defines the `new` constructor, the `sanitize_path_segments` logic for controlling metric cardinality, and the `http_metrics` function that hooks into Warp's logging mechanism to record Prometheus metrics. It also includes unit tests for path sanitization.
-*   `.github/workflows/rust.yml`: Configures the Continuous Integration (CI) pipeline for the project using GitHub Actions, ensuring that the Rust code builds and passes tests on every push and pull request.
+*   **`Cargo.toml`**: Defines the Rust package, its metadata (name, version, description, license), and its direct dependencies: `warp` for the web framework, `prometheus` for the metrics client library, and `log` for internal logging.
+*   **`README.md`**: Provides a high-level overview of the library, including project badges (docs, license, CI status) and a quick example demonstrating how to initialize and apply the `Metrics` struct to a `warp` route.
+*   **`src/lib.rs`**: Contains the complete implementation of the `warp-prometheus` library. This includes the `Metrics` struct definition, its constructor (`new`), the internal `sanitize_path_segments` logic for path anonymization, and the public `http_metrics` function which integrates with `warp`'s logging to record Prometheus HTTP metrics. The file also contains unit tests for the path sanitization logic.
 
-## How to Run
+## How to run
 
-This project is a library and is not run directly as an executable. To use `warp-prometheus` in your Warp application:
+This project is a Rust library and is not run as a standalone application. To use it, integrate it into your `warp` application:
 
-1.  **Add to Dependencies:** Include `warp-prometheus` in your project's `Cargo.toml`:
-    ```toml
-    [dependencies]
-    warp-prometheus = "0.5.0" # Use the appropriate version
-    # ... other dependencies like warp, prometheus
-    ```
-2.  **Integrate Metrics:** In your Warp application code, instantiate `Metrics` with a Prometheus `Registry` and a list of desired path segments to include in metric labels. Then, apply the `http_metrics` function to your Warp routes:
-    ```rust
-    use prometheus::Registry;
-    use warp_prometheus::Metrics;
-    use warp::Filter;
+1.  Add `warp-prometheus` to your `Cargo.toml` dependencies.
+2.  Initialize a `prometheus::Registry` (or use `prometheus::default_registry()`).
+3.  Create an instance of `warp_prometheus::Metrics`, providing the registry and a `Vec<String>` of path segments you wish to explicitly include in your metric labels (other segments will be wildcarded).
+4.  Apply the `metrics.http_metrics` function using `warp::log::custom` to your desired `warp` filters, as shown in the examples in `README.md` and `src/lib.rs`.
+5.  Ensure your application exposes the Prometheus registry's metrics endpoint (e.g., `/metrics`) for scraping.
 
-    let registry: Registry = Registry::new();
-    let path_includes: Vec<String> = vec![String::from("hello")]; // Paths to include as specific labels
+Example usage within a `warp` application:
 
-    let route_one = warp::path("hello")
-        .and(warp::path::param())
-        .and(warp::header("user-agent"))
-        .map(|param: String, agent: String| {
-            format!("Hello {}, whose agent is {}", param, agent)
-        });
+```rust
+use prometheus::Registry;
+use warp_prometheus::Metrics;
+use warp::Filter;
 
-    let metrics = Metrics::new(&registry, &path_includes);
+// Initialize Prometheus registry and Metrics instance
+let registry: Registry = Registry::new();
+let path_includes: Vec<String> = vec![String::from("hello")];
+let metrics = Metrics::new(&registry, &path_includes);
 
-    let test_routes = route_one.with(warp::log::custom(move |log| {
-        metrics.http_metrics(log)
-    }));
+// Define your warp route
+let route_one = warp::path("hello")
+    .and(warp::path::param())
+    .and(warp::header("user-agent"))
+    .map(|param: String, agent: String| {
+        format!("Hello {}, whose agent is {}", param, agent)
+    });
 
-    // You would then serve test_routes as part of your warp application
-    // warp::serve(test_routes).run(([127, 0, 0, 1], 3030)).await;
-    ```
+// Apply the metrics filter to your routes
+let test_routes = route_one.with(warp::log::custom(move |log| {
+    metrics.http_metrics(log)
+}));
 
-## How to Test
+// In a real application, you would then serve `test_routes`
+// and also expose a /metrics endpoint from `registry`.
+// For example:
+// let routes = test_routes.or(warp_prometheus::metrics_route(&registry));
+// warp::serve(routes).run(([127, 0, 0, 1], 8080)).await;
+```
 
-To execute the unit tests for the `warp-prometheus` library, use the standard Cargo test command:
+## How to test
+
+To run the project's unit tests, use the Cargo test command:
 
 ```bash
 cargo test
 ```
-
-This will run all tests defined in `src/lib.rs`, primarily verifying the functionality of the `sanitize_path_segments` method.
